@@ -76,7 +76,8 @@ Navigator	*g_navigator;
 
 Navigator::Navigator() :
 	ModuleParams(nullptr),
-	_loop_perf(perf_alloc(PC_ELAPSED, "navigator")),
+	_loop_perf(perf_alloc(PC_ELAPSED, MODULE_NAME": cycle")),
+	_loop_interval_perf(perf_alloc(PC_INTERVAL, MODULE_NAME": interval")),
 	_geofence(this),
 	_mission(this),
 	_loiter(this),
@@ -106,14 +107,13 @@ Navigator::Navigator() :
 	_handle_back_trans_dec_mss = param_find("VT_B_DEC_MSS");
 	_handle_reverse_delay = param_find("VT_B_REV_DEL");
 
-	_local_pos_sub = orb_subscribe(ORB_ID(vehicle_local_position));
-
 	reset_triplets();
 }
 
 Navigator::~Navigator()
 {
-	orb_unsubscribe(_local_pos_sub);
+	perf_free(_loop_perf);
+	perf_free(_loop_interval_perf);
 }
 
 void
@@ -146,40 +146,16 @@ Navigator::run()
 
 	params_update();
 
-	/* wakeup source(s) */
-	px4_pollfd_struct_t fds[1] = {};
-
-	/* Setup of loop */
-	fds[0].fd = _local_pos_sub;
-	fds[0].events = POLLIN;
-
-	/* rate-limit position subscription to 20 Hz / 50 ms */
-	orb_set_interval(_local_pos_sub, 50);
-
 	hrt_abstime last_geofence_check = 0;
 
 	while (!should_exit()) {
 
-		/* wait for up to 1000ms for data */
-		int pret = px4_poll(&fds[0], (sizeof(fds) / sizeof(fds[0])), 1000);
-
-		if (pret == 0) {
-			/* Let the loop run anyway, don't do `continue` here. */
-
-		} else if (pret < 0) {
-			/* this is undesirable but not much we can do - might want to flag unhappy status */
-			PX4_ERR("poll error %d, %d", pret, errno);
-			px4_usleep(10000);
-			continue;
-
-		} else {
-			if (fds[0].revents & POLLIN) {
-				/* success, local pos is available */
-				orb_copy(ORB_ID(vehicle_local_position), _local_pos_sub, &_local_pos);
-			}
-		}
+		// wait for up to 1000ms for data
+		// if the update fails let the loop run anyway
+		_local_pos_sub.updateBlocking(_local_pos, 1000_ms);
 
 		perf_begin(_loop_perf);
+		perf_count(_loop_interval_perf);
 
 		/* gps updated */
 		if (_gps_pos_sub.updated()) {
@@ -716,6 +692,9 @@ int
 Navigator::print_status()
 {
 	PX4_INFO("Running");
+
+	perf_print_counter(_loop_perf);
+	perf_print_counter(_loop_interval_perf);
 
 	_geofence.printStatus();
 	return 0;

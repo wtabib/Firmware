@@ -62,6 +62,7 @@
 #include <px4_module_params.h>
 #include <uORB/PublicationQueued.hpp>
 #include <uORB/Subscription.hpp>
+#include <uORB/SubscriptionBlocking.hpp>
 #include <uORB/topics/geofence_result.h>
 #include <uORB/topics/home_position.h>
 #include <uORB/topics/mission.h>
@@ -85,12 +86,13 @@
  */
 #define NAVIGATOR_MODE_ARRAY_SIZE 11
 
+using namespace time_literals;
 
 class Navigator : public ModuleBase<Navigator>, public ModuleParams
 {
 public:
 	Navigator();
-	~Navigator() override;
+	virtual ~Navigator() override;
 
 	Navigator(const Navigator &) = delete;
 	Navigator operator=(const Navigator &) = delete;
@@ -311,7 +313,7 @@ private:
 		(ParamFloat<px4::params::MIS_YAW_ERR>) _param_mis_yaw_err
 	)
 
-	int		_local_pos_sub{-1};		/**< local position subscription */
+	uORB::SubscriptionBlocking<vehicle_local_position_s>	_local_pos_sub{ORB_ID(vehicle_local_position), 50_ms};	/**< local position subscription, (interval 50 ms, 20 Hz max) */
 
 	uORB::Subscription _global_pos_sub{ORB_ID(vehicle_global_position)};	/**< global position subscription */
 	uORB::Subscription _gps_pos_sub{ORB_ID(vehicle_gps_position)};		/**< gps position subscription */
@@ -354,6 +356,7 @@ private:
 	vehicle_roi_s					_vroi{};		/**< vehicle ROI */
 
 	perf_counter_t	_loop_perf;			/**< loop performance counter */
+	perf_counter_t	_loop_interval_perf;		/**< loop interval performance counter */
 
 	Geofence	_geofence;			/**< class that handles the geofence */
 	bool		_geofence_violation_warning_sent{false}; /**< prevents spaming to mavlink */
