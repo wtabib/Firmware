@@ -54,7 +54,9 @@
 #include <px4_posix.h>
 #include <drivers/drv_hrt.h>
 
-#include <uORB/uORB.h>
+#include <uORB/Publication.hpp>
+#include <uORB/Subscription.hpp>
+#include <uORB/SubscriptionBlocking.hpp>
 #include <uORB/topics/camera_trigger.h>
 #include <uORB/topics/camera_capture.h>
 #include <uORB/topics/vehicle_attitude.h>
@@ -92,11 +94,12 @@ private:
 	bool		_task_should_exit;		/**< if true, task should exit */
 	int			_main_task;				/**< handle for task */
 
-	int			_trigger_sub;
-	int			_gpos_sub;
-	int			_att_sub;
+	uORB::SubscriptionBlocking<camera_trigger_s>	_trigger_sub{ORB_ID(camera_trigger)};
 
-	orb_advert_t	_capture_pub;
+	uORB::Subscription				_att_sub{ORB_ID(vehicle_attitude)};
+	uORB::Subscription				_gpos_sub{ORB_ID(vehicle_global_position)};
+
+	uORB::Publication<camera_capture_s>		_capture_pub{ORB_ID(camera_capture)};
 
 	param_t			_p_camera_capture_feedback;
 

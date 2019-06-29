@@ -49,10 +49,6 @@ CameraFeedback	*g_camera_feedback;
 CameraFeedback::CameraFeedback() :
 	_task_should_exit(false),
 	_main_task(-1),
-	_trigger_sub(-1),
-	_gpos_sub(-1),
-	_att_sub(-1),
-	_capture_pub(nullptr),
 	_camera_capture_feedback(false)
 {
 
@@ -122,63 +118,34 @@ CameraFeedback::stop()
 void
 CameraFeedback::task_main()
 {
-	_trigger_sub = orb_subscribe(ORB_ID(camera_trigger));
-
 	// Polling sources
-	struct camera_trigger_s trig = {};
-
-	px4_pollfd_struct_t fds[1] = {};
-	fds[0].fd = _trigger_sub;
-	fds[0].events = POLLIN;
+	camera_trigger_s trig{};
 
 	// Geotagging subscriptions
-	_gpos_sub = orb_subscribe(ORB_ID(vehicle_global_position));
-	_att_sub = orb_subscribe(ORB_ID(vehicle_attitude));
-	struct vehicle_global_position_s gpos = {};
-	struct vehicle_attitude_s att = {};
-
-	bool updated = false;
+	vehicle_global_position_s gpos{};
+	vehicle_attitude_s att{};
 
 	while (!_task_should_exit) {
 
-		/* wait for up to 20ms for data */
-		int pret = px4_poll(&fds[0], (sizeof(fds) / sizeof(fds[0])), 20);
-
-		if (pret < 0) {
-			PX4_WARN("poll error %d, %d", pret, errno);
-			continue;
-		}
-
 		/* trigger subscription updated */
-		if (fds[0].revents & POLLIN) {
-
-			orb_copy(ORB_ID(camera_trigger), _trigger_sub, &trig);
+		if (_trigger_sub.updateBlocking(trig)) {
 
 			/* update geotagging subscriptions */
-			orb_check(_gpos_sub, &updated);
-
-			if (updated) {
-				orb_copy(ORB_ID(vehicle_global_position), _gpos_sub, &gpos);
-			}
-
-			orb_check(_att_sub, &updated);
-
-			if (updated) {
-				orb_copy(ORB_ID(vehicle_attitude), _att_sub, &att);
-			}
+			_att_sub.update(&att);
+			_gpos_sub.update(&gpos);
 
 			if (trig.timestamp == 0 ||
 			    gpos.timestamp == 0 ||
 			    att.timestamp == 0) {
+
 				// reject until we have valid data
 				continue;
 			}
 
-			struct camera_capture_s capture = {};
+			camera_capture_s capture{};
 
 			// Fill timestamps
 			capture.timestamp = trig.timestamp;
-
 			capture.timestamp_utc = trig.timestamp_utc;
 
 			// Fill image sequence
@@ -186,9 +153,7 @@ CameraFeedback::task_main()
 
 			// Fill position data
 			capture.lat = gpos.lat;
-
 			capture.lon = gpos.lon;
-
 			capture.alt = gpos.alt;
 
 			capture.ground_distance = gpos.terrain_alt_valid ? (gpos.alt - gpos.terrain_alt) : -1.0f;
@@ -196,11 +161,8 @@ CameraFeedback::task_main()
 			// Fill attitude data
 			// TODO : this needs to be rotated by camera orientation or set to gimbal orientation when available
 			capture.q[0] = att.q[0];
-
 			capture.q[1] = att.q[1];
-
 			capture.q[2] = att.q[2];
-
 			capture.q[3] = att.q[3];
 
 			// Indicate whether capture feedback from camera is available
@@ -212,20 +174,11 @@ CameraFeedback::task_main()
 				capture.result = 1;
 			}
 
-			int instance_id;
-
-			orb_publish_auto(ORB_ID(camera_capture), &_capture_pub, &capture, &instance_id, ORB_PRIO_DEFAULT);
-
+			_capture_pub.publish(capture);
 		}
-
 	}
 
-	orb_unsubscribe(_trigger_sub);
-	orb_unsubscribe(_gpos_sub);
-	orb_unsubscribe(_att_sub);
-
 	_main_task = -1;
-
 }
 
 int
