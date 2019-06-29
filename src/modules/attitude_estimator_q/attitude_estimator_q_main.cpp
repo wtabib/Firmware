@@ -50,6 +50,7 @@
 #include <px4_config.h>
 #include <px4_posix.h>
 #include <px4_tasks.h>
+#include <uORB/SubscriptionBlocking.hpp>
 #include <uORB/Publication.hpp>
 #include <uORB/Subscription.hpp>
 #include <uORB/topics/parameter_update.h>
@@ -107,7 +108,7 @@ private:
 	bool		_task_should_exit = false;	/**< if true, task should exit */
 	int		_control_task = -1;		/**< task handle for task */
 
-	int		_sensors_sub = -1;
+	uORB::SubscriptionBlocking<sensor_combined_s>	_sensors_sub{ORB_ID(sensor_combined)};
 
 	uORB::Subscription		_parameter_update_sub{ORB_ID(parameter_update)};
 	uORB::Subscription		_global_pos_sub{ORB_ID(vehicle_global_position)};
@@ -254,58 +255,40 @@ int AttitudeEstimatorQ::task_main_trampoline(int argc, char *argv[])
 
 void AttitudeEstimatorQ::task_main()
 {
-	_sensors_sub = orb_subscribe(ORB_ID(sensor_combined));
-
 	update_parameters(true);
 
 	hrt_abstime last_time = 0;
 
-	px4_pollfd_struct_t fds[1] = {};
-	fds[0].fd = _sensors_sub;
-	fds[0].events = POLLIN;
-
 	while (!_task_should_exit) {
-		int ret = px4_poll(fds, 1, 1000);
-
-		if (ret < 0) {
-			// Poll error, sleep and try again
-			px4_usleep(10000);
-			PX4_WARN("POLL ERROR");
-			continue;
-
-		} else if (ret == 0) {
-			// Poll timeout, do nothing
-			PX4_WARN("POLL TIMEOUT");
-			continue;
-		}
-
 		update_parameters(false);
 
 		// Update sensors
 		sensor_combined_s sensors;
 
-		if (orb_copy(ORB_ID(sensor_combined), _sensors_sub, &sensors) == PX4_OK) {
-			// Feed validator with recent sensor data
-
-			if (sensors.timestamp > 0) {
-				_gyro(0) = sensors.gyro_rad[0];
-				_gyro(1) = sensors.gyro_rad[1];
-				_gyro(2) = sensors.gyro_rad[2];
-			}
-
-			if (sensors.accelerometer_timestamp_relative != sensor_combined_s::RELATIVE_TIMESTAMP_INVALID) {
-				_accel(0) = sensors.accelerometer_m_s2[0];
-				_accel(1) = sensors.accelerometer_m_s2[1];
-				_accel(2) = sensors.accelerometer_m_s2[2];
-
-				if (_accel.length() < 0.01f) {
-					PX4_ERR("degenerate accel!");
-					continue;
-				}
-			}
-
-			_data_good = true;
+		if (!_sensors_sub.updateBlocking(sensors)) {
+			// timeout or no new data, do nothing
+			continue;
 		}
+
+		// Feed validator with recent sensor data
+		if (sensors.timestamp > 0) {
+			_gyro(0) = sensors.gyro_rad[0];
+			_gyro(1) = sensors.gyro_rad[1];
+			_gyro(2) = sensors.gyro_rad[2];
+		}
+
+		if (sensors.accelerometer_timestamp_relative != sensor_combined_s::RELATIVE_TIMESTAMP_INVALID) {
+			_accel(0) = sensors.accelerometer_m_s2[0];
+			_accel(1) = sensors.accelerometer_m_s2[1];
+			_accel(2) = sensors.accelerometer_m_s2[2];
+
+			if (_accel.length() < 0.01f) {
+				PX4_ERR("degenerate accel!");
+				continue;
+			}
+		}
+
+		_data_good = true;
 
 		// Update magnetometer
 		if (_magnetometer_sub.updated()) {
@@ -423,7 +406,8 @@ void AttitudeEstimatorQ::task_main()
 		last_time = now;
 
 		if (update(dt)) {
-			vehicle_attitude_s att = {};
+			vehicle_attitude_s att{};
+
 			att.timestamp = sensors.timestamp;
 			_q.copyTo(att.q);
 
@@ -431,8 +415,6 @@ void AttitudeEstimatorQ::task_main()
 			_att_pub.publish(att);
 		}
 	}
-
-	orb_unsubscribe(_sensors_sub);
 }
 
 void AttitudeEstimatorQ::update_parameters(bool force)
