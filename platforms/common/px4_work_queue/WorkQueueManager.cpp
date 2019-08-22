@@ -53,6 +53,7 @@ using namespace time_literals;
 namespace px4
 {
 
+static constexpr int TASK_STACK_SIZE = 1248;
 // list of current work queues
 static BlockingList<WorkQueue *> *_wq_manager_wqs_list{nullptr};
 
@@ -255,7 +256,7 @@ int WorkQueueManagerStart()
 	int task_id = px4_task_spawn_cmd("wq:manager",
 					 SCHED_DEFAULT,
 					 PX4_WQ_HP_BASE,
-					 1200,
+					 TASK_STACK_SIZE,
 					 (px4_main_t)&WorkQueueManagerRun,
 					 nullptr);
 

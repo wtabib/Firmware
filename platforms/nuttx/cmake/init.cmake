@@ -120,7 +120,15 @@ if (NOT config_expanded)
 		WORKING_DIRECTORY ${NUTTX_DIR}
 		OUTPUT_FILE nuttx_olddefconfig.log
 		ERROR_FILE nuttx_olddefconfig.log
+		RESULT_VARIABLE ret
 	)
+	if(NOT ret EQUAL "0")
+		# Show the log here as it will be deleted due to the incomplete configure step
+		file(READ ${NUTTX_DIR}/nuttx_olddefconfig.log DEFCONFIG_LOG)
+		message( STATUS "${DEFCONFIG_LOG}")
+		message( FATAL_ERROR "NuttX olddefconfig target failed. \
+Possible cause: the board (${NUTTX_CONFIG_DIR}/${NUTTX_CONFIG}) has the wrong directory structure (i.e. missing files).")
+	endif()
 endif()
 
 ###############################################################################

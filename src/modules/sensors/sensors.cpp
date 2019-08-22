@@ -456,7 +456,8 @@ Sensors::adc_poll()
 				if (ADC_AIRSPEED_VOLTAGE_CHANNEL == buf_adc[i].am_channel) {
 
 					/* calculate airspeed, raw is the difference from */
-					const float voltage = (float)(buf_adc[i].am_data) * 3.3f / 4096.0f * 2.0f;  // V_ref/4096 * (voltage divider factor)
+					const float voltage = (float)(buf_adc[i].am_data) * 3.3f / px4_arch_adc_dn_fullcount() *
+							      2.0f;  // V_ref/4096 * (voltage divider factor)
 
 					/**
 					 * The voltage divider pulls the signal down, only act on
