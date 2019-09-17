@@ -43,15 +43,8 @@
 
 #include <drivers/device/i2c.h>
 #include <drivers/device/device.h>
-#include <drivers/device/ringbuffer.h>
 #include <drivers/device/spi.h>
-#include <drivers/drv_baro.h>
-#include <lib/cdev/CDev.hpp>
 #include <lib/perf/perf_counter.h>
-#include <platforms/px4_getopt.h>
-#include <px4_platform_common/px4_work_queue/ScheduledWorkItem.hpp>
-#include <systemlib/err.h>
-#include <uORB/uORB.h>
 
 #include "board_config.h"
 
@@ -96,5 +89,4 @@ extern bool crc4(uint16_t *n_prom);
 /* interface factories */
 extern device::Device *MS5611_spi_interface(ms5611::prom_u &prom_buf, uint8_t busnum);
 extern device::Device *MS5611_i2c_interface(ms5611::prom_u &prom_buf, uint8_t busnum);
-extern device::Device *MS5611_sim_interface(ms5611::prom_u &prom_buf, uint8_t busnum);
 typedef device::Device *(*MS5611_constructor)(ms5611::prom_u &prom_buf, uint8_t busnum);
