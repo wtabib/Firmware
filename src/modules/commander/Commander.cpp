@@ -611,7 +611,7 @@ Commander::Commander() :
 
 Commander::~Commander()
 {
-	// delete[] _airspeed_fault_type;
+
 }
 
 bool
