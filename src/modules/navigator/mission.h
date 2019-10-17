@@ -254,9 +254,9 @@ private:
 	// track location of planned mission landing
 	bool	_land_start_available{false};
 	uint16_t _land_start_index{UINT16_MAX};		/**< index of DO_LAND_START, INVALID_DO_LAND_START if no planned landing */
-	float _landing_lat{0.0f};
-	float _landing_lon{0.0f};
-	float _landing_alt{0.0f};
+	double _landing_lat{0.0f};
+	double _landing_lon{0.0f};
+	double _landing_alt{0.0f};
 
 	bool _need_takeoff{true};					/**< if true, then takeoff must be performed before going to the first waypoint (if needed) */
 

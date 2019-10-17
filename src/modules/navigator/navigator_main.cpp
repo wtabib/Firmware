@@ -491,8 +491,15 @@ Navigator::run()
 
 				switch (rtl_type()) {
 				case RTL::RTL_LAND: // use mission landing
+				case RTL::RTL_CLOSEST:
 					if (rtl_activated) {
-						mavlink_and_console_log_info(get_mavlink_log_pub(), "RTL LAND activated");
+						if (rtl_type() == RTL::RTL_LAND) {
+							mavlink_and_console_log_info(get_mavlink_log_pub(), "RTL LAND activated");
+
+						} else {
+							mavlink_and_console_log_info(get_mavlink_log_pub(), "RTL Closest landing point activated");
+						}
+
 					}
 
 					// if RTL is set to use a mission landing and mission has a planned landing, then use MISSION to fly there directly
@@ -561,30 +568,6 @@ Navigator::run()
 						}
 					}
 
-					break;
-
-				case RTL::RTL_CLOSEST:
-					if (rtl_activated) {
-						mavlink_and_console_log_info(get_mavlink_log_pub(), "RTL Closest landing point activated");
-					}
-
-					// if RTL is set to use a mission landing and mission has a planned landing, then use MISSION to fly there directly
-					if (on_mission_landing() && !get_land_detected()->landed) {
-						_mission.set_execution_mode(mission_result_s::MISSION_EXECUTION_MODE_FAST_FORWARD);
-						navigation_mode_new = &_mission;
-
-					} else {
-						navigation_mode_new = &_rtl;
-					}
-
-					break;
-
-				default:
-					if (rtl_activated) {
-						mavlink_and_console_log_info(get_mavlink_log_pub(), "RTL HOME activated");
-					}
-
-					navigation_mode_new = &_rtl;
 					break;
 				}
 

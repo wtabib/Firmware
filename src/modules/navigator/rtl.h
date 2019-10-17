@@ -74,6 +74,7 @@ public:
 	void on_activation() override;
 	void on_active() override;
 
+	void find_closest_landing_point();
 	void find_RTL_destination();
 
 	void set_return_alt_min(bool min);
@@ -124,9 +125,8 @@ private:
 		}
 	};
 
-	// RTLType rtl_type{0};
-	RTLPosition _destination{0}; ///< the RTL position to fly to (typically the home position or a safe point)
-	RTLDestinationType _destination_type{};
+	RTLPosition _destination{}; ///< the RTL position to fly to (typically the home position or a safe point)
+	RTLDestinationType _destination_type{RTL_DESTINATION_HOME};
 
 	float _rtl_alt{0.0f};	// AMSL altitude at which the vehicle should return to the home position
 	bool _rtl_alt_min{false};

@@ -395,11 +395,11 @@ Mission::find_mission_land_start()
 		}
 
 		// first check for DO_LAND_START marker
-		if ((missionitem.nav_cmd == NAV_CMD_DO_LAND_START)) {
+		if (missionitem.nav_cmd == NAV_CMD_DO_LAND_START) {
 
 			_land_start_available = true;
 			_land_start_index = i;
-			// the DO_LAND_START marker containst no position sp, so take them from the previous mission item
+			// the DO_LAND_START marker contains no position sp, so take them from the previous mission item
 			_landing_lat = missionitem_prev.lat;
 			_landing_lon = missionitem_prev.lon;
 			_landing_alt = missionitem_prev.altitude;
