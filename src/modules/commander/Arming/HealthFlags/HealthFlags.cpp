@@ -32,18 +32,49 @@
  ****************************************************************************/
 
 /**
- * @file health_flag_helper.h
+ * @file HealthFlags.cpp
  *
  * Contains helper functions to efficiently set the system health flags from commander and preflight check.
  *
  * @author Philipp Oettershagen (philipp.oettershagen@mavt.ethz.ch)
  */
 
-#pragma once
+#include "HealthFlags.h"
 
-#include <px4_log.h>
-#include <uORB/topics/vehicle_status.h>
+void set_health_flags(uint64_t subsystem_type, bool present, bool enabled, bool ok, vehicle_status_s &status)
+{
+	PX4_DEBUG("set_health_flags: Type %llu pres=%u enabl=%u ok=%u", subsystem_type, present, enabled, ok);
 
-void set_health_flags(uint64_t subsystem_type, bool present, bool enabled, bool ok, vehicle_status_s &status);
-void set_health_flags_present_healthy(uint64_t subsystem_type, bool present, bool healthy, vehicle_status_s &status);
-void set_health_flags_healthy(uint64_t subsystem_type, bool healthy, vehicle_status_s &status);
+	if (present) {
+		status.onboard_control_sensors_present |= (uint32_t)subsystem_type;
+
+	} else {
+		status.onboard_control_sensors_present &= ~(uint32_t)subsystem_type;
+	}
+
+	if (enabled) {
+		status.onboard_control_sensors_enabled |= (uint32_t)subsystem_type;
+
+	} else {
+		status.onboard_control_sensors_enabled &= ~(uint32_t)subsystem_type;
+	}
+
+	if (ok) {
+		status.onboard_control_sensors_health |= (uint32_t)subsystem_type;
+
+	} else {
+		status.onboard_control_sensors_health &= ~(uint32_t)subsystem_type;
+	}
+}
+
+void set_health_flags_present_healthy(uint64_t subsystem_type, bool present, bool healthy, vehicle_status_s &status)
+{
+	set_health_flags(subsystem_type, present, status.onboard_control_sensors_enabled & (uint32_t)subsystem_type, healthy,
+			 status);
+}
+
+void set_health_flags_healthy(uint64_t subsystem_type, bool healthy, vehicle_status_s &status)
+{
+	set_health_flags(subsystem_type, status.onboard_control_sensors_present & (uint32_t)subsystem_type,
+			 status.onboard_control_sensors_enabled & (uint32_t)subsystem_type, healthy, status);
+}
