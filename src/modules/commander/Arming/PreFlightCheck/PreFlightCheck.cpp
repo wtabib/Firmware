@@ -46,30 +46,26 @@ bool PreFlightCheck::preArmCheck(orb_advert_t *mavlink_log_pub, const vehicle_st
 				 const safety_s &safety, const uint8_t arm_requirements)
 {
 	bool prearm_ok = true;
+	char const *feedback_string = ""; // make sure it's never nullptr
 
 	// USB not connected
 	if (!status_flags.circuit_breaker_engaged_usb_check && status_flags.usb_connected) {
-		mavlink_log_critical(mavlink_log_pub, "Arming denied! Flying with USB is not safe");
-
+		feedback_string = "Disconnect USB";
 		prearm_ok = false;
 	}
 
-	// battery and system power status
+	// Battery and system power status
 	if (!status_flags.circuit_breaker_engaged_power_check) {
 
 		// Fail transition if power is not good
 		if (!status_flags.condition_power_input_valid) {
-			mavlink_log_critical(mavlink_log_pub, "Arming denied! Connect power module");
-
+			feedback_string = "Connect power module";
 			prearm_ok = false;
 		}
 
 		// main battery level
 		if (!status_flags.condition_battery_healthy) {
-			if (prearm_ok) {
-				mavlink_log_critical(mavlink_log_pub, "Arming denied! Check battery");
-			}
-
+			feedback_string = "Check battery";
 			prearm_ok = false;
 		}
 	}
@@ -78,69 +74,53 @@ bool PreFlightCheck::preArmCheck(orb_advert_t *mavlink_log_pub, const vehicle_st
 	if (arm_requirements & ARM_REQ_MISSION_BIT) {
 
 		if (!status_flags.condition_auto_mission_available) {
-			if (prearm_ok) {
-				mavlink_log_critical(mavlink_log_pub, "Arming denied! No valid mission");
-			}
-
+			feedback_string = "Upload valid mission";
 			prearm_ok = false;
 		}
 
 		if (!status_flags.condition_global_position_valid) {
-			if (prearm_ok) {
-				mavlink_log_critical(mavlink_log_pub, "Arming denied! Missions require a global position");
-			}
-
+			feedback_string = "Mission requires global position";
 			prearm_ok = false;
 		}
 	}
 
 	// Arm Requirements: global position
 	if (arm_requirements & ARM_REQ_GPS_BIT) {
-
 		if (!status_flags.condition_global_position_valid) {
-			if (prearm_ok) {
-				mavlink_log_critical(mavlink_log_pub, "Arming denied! Global position required");
-			}
-
+			feedback_string = "Global position required";
 			prearm_ok = false;
 		}
 	}
 
-	// safety button
+	// Safety button
 	if (safety.safety_switch_available && !safety.safety_off) {
-		// Fail transition if we need safety switch press
-		if (prearm_ok) {
-			mavlink_log_critical(mavlink_log_pub, "Arming denied! Press safety switch first");
-		}
-
+		feedback_string = "Press safety button";
 		prearm_ok = false;
 	}
 
 	if (status_flags.avoidance_system_required && !status_flags.avoidance_system_valid) {
-		if (prearm_ok) {
-			mavlink_log_critical(mavlink_log_pub, "Arming denied! Avoidance system not ready");
-		}
-
+		feedback_string = "Check avoidance system";
 		prearm_ok = false;
 
 	}
 
 	if (status_flags.condition_escs_error && (arm_requirements & ARM_REQ_ESCS_CHECK_BIT)) {
-		if (prearm_ok) {
-			mavlink_log_critical(mavlink_log_pub, "Arming denied! One or more ESCs are offline");
-			prearm_ok = false;
-		}
+		feedback_string = "Check motor controllers";
+		prearm_ok = false;
 	}
 
 	// Arm Requirements: authorization
 	// check last, and only if everything else has passed
-	if ((arm_requirements & ARM_REQ_ARM_AUTH_BIT) && prearm_ok) {
+	if (arm_requirements & ARM_REQ_ARM_AUTH_BIT) {
 		if (arm_auth_check() != vehicle_command_ack_s::VEHICLE_RESULT_ACCEPTED) {
-			// feedback provided in arm_auth_check
+			feedback_string = "Request authorization";
 			prearm_ok = false;
 		}
 	}
 
+	if (!prearm_ok) {
+		mavlink_log_critical(mavlink_log_pub, "Not arming: %s", feedback_string);
+	}
 
 	return prearm_ok;
 }
