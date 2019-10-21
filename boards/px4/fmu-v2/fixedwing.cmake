@@ -21,7 +21,7 @@ px4_add_board(
 		adc
 		#barometer # all available barometer drivers
 		barometer/ms5611
-		batt_smbus
+		#batt_smbus
 		camera_capture
 		camera_trigger
 		differential_pressure # all available differential pressure drivers
@@ -42,6 +42,8 @@ px4_add_board(
 		#uavcan
 
 	MODULES
+		airspeed_selector
+		battery_status
 		camera_feedback
 		commander
 		dataman
@@ -54,10 +56,9 @@ px4_add_board(
 		logger
 		mavlink
 		navigator
-		battery_status
+		rc_update
 		sensors
 		vmount
-		airspeed_selector
 
 	SYSTEMCMDS
 		bl_update
