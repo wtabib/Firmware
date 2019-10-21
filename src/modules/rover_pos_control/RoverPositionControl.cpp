@@ -129,6 +129,17 @@ RoverPositionControl::position_setpoint_triplet_poll()
 }
 
 void
+RoverPositionControl::attitude_setpoint_poll()
+{
+	bool att_sp_updated;
+	orb_check(_att_sp_sub, &att_sp_updated);
+
+	if (att_sp_updated) {
+		orb_copy(ORB_ID(vehicle_attitude_setpoint), _att_sp_sub, &_att_sp);
+	}
+}
+
+void
 RoverPositionControl::vehicle_attitude_poll()
 {
 	bool att_updated;
@@ -308,6 +319,20 @@ RoverPositionControl::control_velocity(const matrix::Vector3f &current_velocity,
 }
 
 void
+RoverPositionControl::control_attitude()
+{
+	float desired_theta = 0.0f;
+	//TODO: Calculate desired yaw from attitude setpoints
+	float control_effort = desired_theta / _param_max_turn_angle.get();
+	control_effort = math::constrain(control_effort, -1.0f, 1.0f);
+
+	_act_controls.control[actuator_controls_s::INDEX_YAW] = control_effort;
+
+	//TODO: Get thrust setpoints for attitude
+
+}
+
+void
 RoverPositionControl::run()
 {
 	_control_mode_sub = orb_subscribe(ORB_ID(vehicle_control_mode));
@@ -315,6 +340,8 @@ RoverPositionControl::run()
 	_local_pos_sub = orb_subscribe(ORB_ID(vehicle_local_position));
 	_manual_control_sub = orb_subscribe(ORB_ID(manual_control_setpoint));
 	_pos_sp_triplet_sub = orb_subscribe(ORB_ID(position_setpoint_triplet));
+	_att_sp_sub = orb_subscribe(ORB_ID(vehicle_attitude_setpoint));
+
 	_vehicle_attitude_sub = orb_subscribe(ORB_ID(vehicle_attitude));
 	_sensor_combined_sub = orb_subscribe(ORB_ID(sensor_combined));
 
@@ -428,6 +455,10 @@ RoverPositionControl::run()
 			} else if (!manual_mode && _control_mode.flag_control_velocity_enabled) {
 
 				control_velocity(current_velocity, _pos_sp_triplet);
+
+			} else if (!manual_mode && _control_mode.flag_control_attitude_enabled) {
+
+				control_attitude();
 
 			}
 
