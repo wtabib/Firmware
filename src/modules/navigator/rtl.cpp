@@ -91,14 +91,14 @@ RTL::find_closest_landing_point()
 			_destination.lat = _navigator->get_mission_landing_lat();
 			_destination.lon = _navigator->get_mission_landing_lon();
 			_destination.alt = _navigator->get_mission_landing_alt();
-			_destination_type = RTL_DESTINATION_MISSION_LANDING;
+			_destination.type = RTL_DESTINATION_MISSION_LANDING;
 
 		} else {
-			_destination_type = RTL_DESTINATION_HOME;
+			_destination.type = RTL_DESTINATION_HOME;
 		}
 	}
 
-	// copare to safe landing positions
+	// compare to safe landing positions
 	mission_safe_point_s closest_safe_point {} ;
 	mission_stats_entry_s stats;
 	int ret = dm_read(DM_KEY_SAFE_POINTS, 0, &stats, sizeof(mission_stats_entry_s));
@@ -133,7 +133,7 @@ RTL::find_closest_landing_point()
 	}
 
 	if (closest_index > 0) {
-		_destination_type = RTL_DESTINATION_SAFE_POINT;
+		_destination.type = RTL_DESTINATION_SAFE_POINT;
 
 		// There is a safe point closer than home/mission landing
 		// TODO: handle all possible mission_safe_point.frame cases
@@ -173,39 +173,39 @@ RTL::find_RTL_destination()
 	home_position_s &home_landing_position = *_navigator->get_home_position();
 
 	switch (rtl_type()) {
-	case RTL_HOME: { // always take home position as landing destination
+	case RTL_HOME:
+		// always take home position as landing destination
+		_destination.set(home_landing_position);
+		_destination.type = RTL_DESTINATION_HOME;
+		break;
+
+	case RTL_LAND:
+
+	// take mission landing as landing destination (if available), otherwise home
+	case RTL_MISSION:
+
+		// inverse mission
+		if (_navigator->get_mission_start_land_available()) {
+			_destination.lat = _navigator->get_mission_landing_lat();
+			_destination.lon = _navigator->get_mission_landing_lon();
+			_destination.alt = _navigator->get_mission_landing_alt();
+			_destination.type = RTL_DESTINATION_MISSION_LANDING;
+
+		} else {
 			_destination.set(home_landing_position);
-			_destination_type = RTL_DESTINATION_HOME;
-			break;
+			_destination.type = RTL_DESTINATION_HOME;
 		}
 
+		break;
 
-	case RTL_LAND: // take mission landing as landing destination (if available), otherwise home
-	case RTL_MISSION: { // inverse mission
-			if (_navigator->get_mission_start_land_available()) {
-				_destination.lat = _navigator->get_mission_landing_lat();
-				_destination.lon = _navigator->get_mission_landing_lon();
-				_destination.alt = _navigator->get_mission_landing_alt();
-				_destination_type = RTL_DESTINATION_MISSION_LANDING;
+	case RTL_CLOSEST:
+		// choose closest possible landing point (consider home, mission landing and safe points)
+		find_closest_landing_point();
+		break;
 
-			} else {
-				_destination.set(home_landing_position);
-				_destination_type = RTL_DESTINATION_HOME;
-			}
-
-			break;
-		}
-
-
-	case RTL_CLOSEST: { // choose closest possible landing point (consider home, mission landing and safe points)
-			find_closest_landing_point();
-			break;
-		}
-
-	default: {
-			mavlink_log_critical(_navigator->get_mavlink_log_pub(), "RTL: unsupported RTL_TYPE. Change RTL_TYPE param.");
-			break;
-		}
+	default:
+		mavlink_log_critical(_navigator->get_mavlink_log_pub(), "RTL: unsupported RTL_TYPE. Change RTL_TYPE param.");
+		break;
 	}
 }
 
@@ -220,7 +220,7 @@ RTL::on_activation()
 {
 
 	// output the correct message, depending on where the RTL destination is
-	switch (_destination_type) {
+	switch (_destination.type) {
 	case RTL_DESTINATION_HOME:
 		mavlink_and_console_log_info(_navigator->get_mavlink_log_pub(), "RTL: landing at home position.");
 		break;
@@ -242,7 +242,7 @@ RTL::on_activation()
 		// For safety reasons don't go into RTL if landed.
 		_rtl_state = RTL_STATE_LANDED;
 
-	} else if ((_destination_type == RTL_DESTINATION_MISSION_LANDING) && _navigator->on_mission_landing()) {
+	} else if ((_destination.type == RTL_DESTINATION_MISSION_LANDING) && _navigator->on_mission_landing()) {
 		// RTL straight to RETURN state, but mission will takeover for landing.
 
 	} else if ((global_position.alt < _destination.alt + _param_rtl_return_alt.get()) || _rtl_alt_min) {
@@ -280,7 +280,7 @@ RTL::set_rtl_item()
 	// RTL_TYPE: mission landing.
 	// Landing using planned mission landing, fly to DO_LAND_START instead of returning _destination.
 	// After reaching DO_LAND_START, do nothing, let navigator takeover with mission landing.
-	if (_destination_type == RTL_DESTINATION_MISSION_LANDING) {
+	if (_destination.type == RTL_DESTINATION_MISSION_LANDING) {
 		if (_rtl_state > RTL_STATE_CLIMB) {
 			if (_navigator->start_mission_landing()) {
 				mavlink_and_console_log_info(_navigator->get_mavlink_log_pub(), "RTL: using mission landing");

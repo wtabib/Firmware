@@ -114,6 +114,7 @@ private:
 		float alt;
 		float yaw;
 		uint8_t safe_point_index; ///< 0 = home position, 1 = mission landing, >1 = safe landing points (rally points)
+		RTLDestinationType type{RTL_DESTINATION_HOME};
 
 		void set(const home_position_s &home_position)
 		{
@@ -122,11 +123,11 @@ private:
 			alt = home_position.alt;
 			yaw = home_position.yaw;
 			safe_point_index = 0;
+			type = RTL_DESTINATION_HOME;
 		}
 	};
 
 	RTLPosition _destination{}; ///< the RTL position to fly to (typically the home position or a safe point)
-	RTLDestinationType _destination_type{RTL_DESTINATION_HOME};
 
 	float _rtl_alt{0.0f};	// AMSL altitude at which the vehicle should return to the home position
 	bool _rtl_alt_min{false};
